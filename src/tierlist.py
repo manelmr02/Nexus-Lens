@@ -2,6 +2,7 @@
 Tier list completa del parche actual con todos los campeones.
 Formato plano: (dd_name, display_name, role, tier, win_rate, pick_rate, ban_rate)
 """
+from __future__ import annotations
 
 CURRENT_PATCH = "16.10"
 
