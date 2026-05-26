@@ -4,8 +4,12 @@ import plotly.graph_objects as go
 import plotly.express as px
 from src.riot_client import NexusClient, REGION_MAP
 from src.analyzer import MatchAnalyzer
-from src.ddragon import champion_img_url, item_img_url, profile_icon_url, get_item_name
+from src.ddragon import (champion_img_url, item_img_url, profile_icon_url, get_item_name,
+                         get_all_champion_names, get_champion_tags, get_rune_data,
+                         get_rune_by_key, rune_img_url, get_item_id_by_name)
 from src.tierlist import TIER_LIST, TIER_COLORS, CURRENT_PATCH
+from src.matchup_guide import (get_rune_page, get_build, get_matchup_advice,
+                                get_primary_type, _ROLE_TO_POS)
 
 st.set_page_config(page_title="Nexus Lens", page_icon="🧿", layout="wide")
 
@@ -116,10 +120,217 @@ with st.sidebar:
 
 # ── TABS ────────────────────────────────────────────────────────────────────────
 st.title("🧿 Nexus Lens")
-tab_perfil, tab_champs, tab_render, tab_estilo, tab_tier, tab_coach = st.tabs([
+tab_perfil, tab_champs, tab_render, tab_estilo, tab_matchup, tab_tier, tab_coach = st.tabs([
     "📊 Resumen", "🏆 Campeones", "📈 Rendimiento", "🧠 Estilo de Juego",
-    "🔥 Tier List", "🤖 IA Coach"
+    "⚔️ Match-Up Guide", "🔥 Tier List", "🤖 IA Coach"
 ])
+
+# ── MATCH-UP GUIDE (siempre visible, independiente del análisis) ───────────────
+with tab_matchup:
+    st.header("⚔️ Match-Up Guide")
+    st.markdown("Selecciona tu campeón, tu rol y el rival para obtener runas, build y consejos de matchup.")
+
+    ROLES_DISPLAY = ["Top", "Jungla", "Mid", "ADC", "Support"]
+    all_champs = get_all_champion_names()
+
+    mg_col1, mg_col2, mg_col3 = st.columns([2, 1, 2])
+    with mg_col1:
+        my_champ = st.selectbox("Tu Campeón", all_champs, index=all_champs.index("Ahri") if "Ahri" in all_champs else 0, key="mg_my_champ")
+        my_role  = st.selectbox("Tu Rol", ROLES_DISPLAY, key="mg_my_role")
+    with mg_col2:
+        st.markdown("<div style='text-align:center;padding-top:2rem;font-size:2rem;'>VS</div>", unsafe_allow_html=True)
+    with mg_col3:
+        enemy_champ = st.selectbox("Campeón Rival", all_champs, index=all_champs.index("Zed") if "Zed" in all_champs else 1, key="mg_enemy_champ")
+        st.markdown("<br>", unsafe_allow_html=True)
+
+    mg_btn = st.button("Analizar Match-Up", use_container_width=True, key="mg_btn")
+
+    if mg_btn or True:  # Mostrar siempre con los selectores actuales
+        role_pos = _ROLE_TO_POS.get(my_role, "MIDDLE")
+
+        my_tags    = get_champion_tags(my_champ)
+        enemy_tags = get_champion_tags(enemy_champ)
+        my_type    = get_primary_type(my_tags)
+        enemy_type = get_primary_type(enemy_tags)
+
+        rune_page = get_rune_page(my_champ, role_pos)
+        build     = get_build(my_champ, role_pos)
+        advice    = get_matchup_advice(my_type, enemy_type)
+
+        st.markdown("---")
+
+        # ── Header del matchup ─────────────────────────────────────────────────
+        hc1, hc2, hc3 = st.columns([2, 1, 2])
+        with hc1:
+            st.markdown(f"""
+            <div style="text-align:center;padding:1rem;background:rgba(30,41,59,0.5);border-radius:14px;">
+              <img src="{champion_img_url(my_champ)}" width="90" style="border-radius:12px;border:2px solid #3b82f6;">
+              <div style="font-size:1.1rem;font-weight:700;margin-top:8px;">{my_champ}</div>
+              <div style="color:#64748b;font-size:0.8rem;">{my_role} · {my_type}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with hc2:
+            diff_color = advice["color"]
+            st.markdown(f"""
+            <div style="text-align:center;padding:1rem;">
+              <div style="font-size:2rem;">⚔️</div>
+              <div style="background:{diff_color}22;border:1px solid {diff_color};border-radius:8px;
+                          padding:6px 12px;font-weight:700;color:{diff_color};font-size:0.85rem;">
+                {advice['difficulty']}
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+        with hc3:
+            st.markdown(f"""
+            <div style="text-align:center;padding:1rem;background:rgba(30,41,59,0.5);border-radius:14px;">
+              <img src="{champion_img_url(enemy_champ)}" width="90" style="border-radius:12px;border:2px solid #ef4444;">
+              <div style="font-size:1.1rem;font-weight:700;margin-top:8px;">{enemy_champ}</div>
+              <div style="color:#64748b;font-size:0.8rem;">{enemy_type}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # ── Consejos de matchup ────────────────────────────────────────────────
+        st.markdown(f"#### Cómo jugar este matchup")
+        st.markdown(f"""
+        <div style="padding:1rem;background:rgba(30,41,59,0.4);border-radius:12px;
+                    border-left:4px solid {advice['color']};margin-bottom:1rem;">
+          <span style="color:#e2e8f0;">{advice['overview']}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        tips_cols = st.columns(len(advice["tips"]))
+        icons = ["🌅", "🗺️", "🏆"]
+        labels = ["Early Game", "Mid Game", "Late Game / General"]
+        for i, (tip, col) in enumerate(zip(advice["tips"], tips_cols)):
+            with col:
+                st.markdown(f"""
+                <div style="padding:1rem;background:rgba(30,41,59,0.4);border-radius:12px;height:100%;
+                            border:1px solid rgba(255,255,255,0.07);">
+                  <div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;margin-bottom:6px;">
+                    {icons[i]} {labels[i]}
+                  </div>
+                  <div style="font-size:0.9rem;color:#cbd5e1;">{tip}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        if advice.get("items_note"):
+            st.info(f"💡 **Ajuste de build:** {advice['items_note']}")
+
+        st.markdown("---")
+
+        # ── Runas ──────────────────────────────────────────────────────────────
+        st.markdown(f"#### Runas Recomendadas — {my_champ} {my_role}")
+
+        if rune_page:
+            rune_data = get_rune_data()
+
+            def render_rune(key: str, size: int = 40) -> str:
+                r = get_rune_by_key(key)
+                if r and r.get("icon"):
+                    url = rune_img_url(r["icon"])
+                    name = r.get("name", key)
+                    return f'<img src="{url}" width="{size}" title="{name}" style="border-radius:50%;margin:3px;">'
+                return f'<span style="color:#64748b;font-size:0.75rem;">{key}</span>'
+
+            def get_tree_icon(tree_name: str) -> str:
+                for tree in rune_data:
+                    if tree.get("key") == tree_name or tree.get("name") == tree_name:
+                        return rune_img_url(tree["icon"]) if tree.get("icon") else ""
+                return ""
+
+            rc1, rc2 = st.columns(2)
+
+            with rc1:
+                primary_tree_icon = get_tree_icon(rune_page["primary_tree"])
+                st.markdown(f"""
+                <div style="background:rgba(30,41,59,0.5);border-radius:14px;padding:1.2rem;
+                            border:1px solid rgba(255,255,255,0.07);">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    {'<img src="' + primary_tree_icon + '" width="24">' if primary_tree_icon else ""}
+                    <span style="color:#94a3b8;font-size:0.8rem;text-transform:uppercase;">
+                      {rune_page['primary_tree']} (Principal)
+                    </span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    {render_rune(rune_page['keystone'], 52)}
+                    <div>
+                      <div style="font-weight:700;">{get_rune_by_key(rune_page["keystone"]) and get_rune_by_key(rune_page["keystone"]).get("name", rune_page["keystone"]) or rune_page["keystone"]}</div>
+                      <div style="color:#64748b;font-size:0.75rem;">Keystone</div>
+                    </div>
+                  </div>
+                  <div>{"".join(render_rune(r, 36) for r in rune_page["primary_slots"])}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with rc2:
+                secondary_tree_icon = get_tree_icon(rune_page["secondary_tree"])
+                st.markdown(f"""
+                <div style="background:rgba(30,41,59,0.5);border-radius:14px;padding:1.2rem;
+                            border:1px solid rgba(255,255,255,0.07);">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    {'<img src="' + secondary_tree_icon + '" width="24">' if secondary_tree_icon else ""}
+                    <span style="color:#94a3b8;font-size:0.8rem;text-transform:uppercase;">
+                      {rune_page['secondary_tree']} (Secundario)
+                    </span>
+                  </div>
+                  <div>{"".join(render_rune(r, 36) for r in rune_page["secondary_slots"])}</div>
+                  <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.07);">
+                    <span style="color:#64748b;font-size:0.75rem;text-transform:uppercase;">Fragmentos</span><br>
+                    <span style="font-size:0.85rem;color:#cbd5e1;">
+                      {"  ·  ".join(rune_page.get("shards", []))}
+                    </span>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info(f"No hay página de runas específica para {my_champ} en {my_role}. Consulta OP.GG para datos en tiempo real.")
+
+        st.markdown("---")
+
+        # ── Build ──────────────────────────────────────────────────────────────
+        st.markdown(f"#### Build Recomendada — {my_champ} {my_role}")
+
+        if build:
+            if build.get("note"):
+                st.markdown(f"""
+                <div style="padding:0.8rem 1rem;background:rgba(59,130,246,0.1);border-radius:10px;
+                            border-left:3px solid #3b82f6;margin-bottom:1rem;font-size:0.9rem;">
+                  {build['note']}
+                </div>
+                """, unsafe_allow_html=True)
+
+            def render_item_card(item_name: str) -> str:
+                item_id = get_item_id_by_name(item_name)
+                img_url = item_img_url(item_id) if item_id else ""
+                img_tag = f'<img src="{img_url}" width="48" style="border-radius:8px;">' if img_url else "❓"
+                return f"""
+                <div style="display:inline-block;text-align:center;margin:4px;vertical-align:top;width:70px;">
+                  {img_tag}
+                  <div style="font-size:0.65rem;color:#94a3b8;margin-top:3px;word-break:break-word;">{item_name}</div>
+                </div>"""
+
+            build_rows = [
+                ("🟡 Inicio", build.get("start", [])),
+                ("👟 Botas", [build.get("boots")] if build.get("boots") else []),
+                ("⚡ Core (Build Principal)", build.get("core", [])),
+                ("🔧 Situacional", build.get("situational", [])),
+            ]
+            for label, items in build_rows:
+                if not items:
+                    continue
+                items_html = "".join(render_item_card(it) for it in items if it)
+                st.markdown(f"""
+                <div style="margin-bottom:0.8rem;">
+                  <div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;margin-bottom:6px;">{label}</div>
+                  <div style="background:rgba(30,41,59,0.4);border-radius:12px;padding:0.8rem;
+                              border:1px solid rgba(255,255,255,0.05);">{items_html}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info(f"No hay build específica para {my_champ} en {my_role}. Consulta OP.GG para datos actualizados.")
+
 
 # ── TIER LIST (siempre visible, sin datos del jugador) ──────────────────────────
 with tab_tier:
@@ -371,8 +582,11 @@ if analyze_btn:
                         textposition="outside",
                         hovertemplate="<b>%{x}</b><br>KDA: %{y}<extra></extra>",
                     ))
-                    fig_kda.add_hline(y=2.8, line_dash="dash", line_color="#60a5fa",
-                                      annotation_text="Umbral Platino", annotation_position="top right")
+                    role_thresh_champs, _ = analyzer.get_role_thresholds_for_display(matches_stats)
+                    kda_ref = role_thresh_champs["kda"]
+                    fig_kda.add_hline(y=kda_ref, line_dash="dash", line_color="#60a5fa",
+                                      annotation_text=f"Obj {role_thresh_champs['label']} ({kda_ref})",
+                                      annotation_position="top right")
                     fig_kda.update_layout(
                         title="KDA Promedio por Campeón",
                         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
@@ -706,8 +920,14 @@ if analyze_btn:
 
             # ── TAB 6: IA COACH ─────────────────────────────────────────────────
             with tab_coach:
+                role_thresh, role_key = analyzer.get_role_thresholds_for_display(matches_stats)
+                role_label_coach = role_thresh["label"]
+
                 st.header("IA Coach — Evaluación Personalizada")
-                st.markdown(f"*Análisis basado en las últimas **{agg['games']}** partidas de **{riot_name}#{riot_tag}***")
+                st.markdown(
+                    f"*Análisis basado en las últimas **{agg['games']}** partidas de **{riot_name}#{riot_tag}** "
+                    f"— umbrales ajustados para **{role_label_coach}***"
+                )
                 st.markdown("---")
 
                 type_map = {
@@ -723,26 +943,32 @@ if analyze_btn:
                     fn(f"{icons.get(level, '')} {msg}")
 
                 st.markdown("---")
-                st.markdown("#### Comparativa vs Umbrales de Platino")
-                thresholds = {
-                    "KDA": (agg["avg_kda"], 2.8),
-                    "CS/min": (agg["avg_cs_pm"], 6.5),
-                    "Daño/min": (agg["avg_damage_pm"], 700),
-                    "Visión/min": (agg["avg_vision_pm"], 1.3),
-                }
-                th_cols = st.columns(4)
-                for i, (label, (val, target)) in enumerate(thresholds.items()):
-                    pct = min(100, round((val / target) * 100))
-                    color = "#10b981" if pct >= 100 else ("#f59e0b" if pct >= 70 else "#ef4444")
+                st.markdown(f"#### Comparativa vs Umbrales — {role_label_coach}")
+
+                # Métricas relevantes según el rol detectado
+                role_metrics = [
+                    ("KDA", agg["avg_kda"], role_thresh["kda"]),
+                    ("Daño/min", agg["avg_damage_pm"], role_thresh["damage_per_min"]),
+                    ("Visión/min", agg["avg_vision_pm"], role_thresh["vision_per_min"]),
+                    ("KP%", agg["avg_kp"], role_thresh["kp"]),
+                ]
+                if role_thresh["show_cs"] and role_thresh["cs_per_min"] is not None:
+                    role_metrics.insert(1, ("CS/min", agg["avg_cs_pm"], role_thresh["cs_per_min"]))
+
+                th_cols = st.columns(len(role_metrics))
+                for i, (label, val, target) in enumerate(role_metrics):
+                    pct = min(100, round((val / target) * 100)) if target else 100
+                    color = "#10b981" if pct >= 100 else ("#f59e0b" if pct >= 75 else "#ef4444")
                     with th_cols[i]:
                         st.markdown(f"""
                         <div class="stat-card">
                           <div style="color:#94a3b8;font-size:0.75rem;text-transform:uppercase;">{label}</div>
                           <div style="font-size:1.5rem;font-weight:800;color:{color};">{val}</div>
-                          <div style="color:#64748b;font-size:0.8rem;">Obj: {target}</div>
+                          <div style="color:#64748b;font-size:0.8rem;">Obj {role_label_coach}: {target}</div>
                           <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:6px;margin-top:8px;">
                             <div style="width:{pct}%;background:{color};height:100%;border-radius:4px;"></div>
                           </div>
+                          <div style="color:#64748b;font-size:0.7rem;margin-top:4px;">{pct}% del objetivo</div>
                         </div>
                         """, unsafe_allow_html=True)
 
