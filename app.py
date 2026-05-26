@@ -7,7 +7,7 @@ from src.analyzer import MatchAnalyzer
 from src.ddragon import (champion_img_url, item_img_url, profile_icon_url, get_item_name,
                          get_all_champion_names, get_champion_tags, get_rune_data,
                          get_rune_by_key, rune_img_url, get_item_id_by_name)
-from src.tierlist import TIER_LIST, TIER_COLORS, CURRENT_PATCH
+from src.tierlist import TIER_COLORS, CURRENT_PATCH, get_tier_list_by_role
 from src.matchup_guide import (get_rune_page, get_build, get_matchup_advice,
                                 get_primary_type, _ROLE_TO_POS)
 
@@ -153,8 +153,8 @@ with tab_matchup:
         my_type    = get_primary_type(my_tags)
         enemy_type = get_primary_type(enemy_tags)
 
-        rune_page = get_rune_page(my_champ, role_pos)
-        build     = get_build(my_champ, role_pos)
+        rune_page = get_rune_page(my_champ, role_pos, my_tags)
+        build     = get_build(my_champ, role_pos, my_tags)
         advice    = get_matchup_advice(my_type, enemy_type)
 
         st.markdown("---")
@@ -338,11 +338,11 @@ with tab_tier:
     st.markdown("*Basada en estadísticas de partidas de nivel Platino+ en todas las regiones.*")
 
     role_tabs = st.tabs(["Top", "Jungla", "Mid", "ADC", "Support"])
-    role_keys = ["TOP", "JUNGLE", "MIDDLE", "ADC", "SUPPORT"]
+    role_keys = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
 
     for rt, role_key in zip(role_tabs, role_keys):
         with rt:
-            role_data = TIER_LIST.get(role_key, {})
+            role_data = get_tier_list_by_role(role_key)
             for tier_name in ["S+", "S", "A", "B", "C"]:
                 champs = role_data.get(tier_name, [])
                 if not champs:

@@ -844,16 +844,6 @@ _ROLE_TO_POS = {
     "Top": "TOP", "Jungla": "JUNGLE", "Mid": "MIDDLE", "ADC": "BOTTOM", "Support": "UTILITY"
 }
 
-def get_rune_page(champion_dd: str, role_pos: str) -> dict | None:
-    """Devuelve la página de runas del campeón en ese rol, o None si no hay dato."""
-    champ_data = RUNE_PAGES.get(champion_dd, {})
-    return champ_data.get(role_pos)
-
-def get_build(champion_dd: str, role_pos: str) -> dict | None:
-    """Devuelve el build del campeón en ese rol, o None si no hay dato."""
-    champ_data = BUILDS.get(champion_dd, {})
-    return champ_data.get(role_pos)
-
 def get_matchup_advice(my_type: str, enemy_type: str) -> dict:
     """Devuelve el consejo de matchup por arque tipo. Busca (my, enemy) y fallback a generic."""
     advice = ARCHETYPE_ADVICE.get((my_type, enemy_type))
@@ -876,3 +866,259 @@ def get_primary_type(tags: list[str]) -> str:
     """Extrae el tipo principal de un campeón a partir de sus tags de Data Dragon.
     Data Dragon ordena los tags del más al menos representativo, así que usamos el primero."""
     return tags[0] if tags else "Fighter"
+
+
+# ── BUILDS Y RUNAS GENÉRICAS (fallback para cualquier campeón) ────────────────
+# Clave: (primary_type, role_pos)
+# Cubren todos los casos cuando no hay datos específicos del campeón.
+
+GENERIC_RUNES: dict[tuple, dict] = {
+    ("Fighter", "TOP"): {
+        "keystone": "Conqueror", "primary_tree": "Precision",
+        "primary_slots": ["Triumph", "LegendTenacity", "LastStand"],
+        "secondary_tree": "Resolve", "secondary_slots": ["BonePlating", "Overgrowth"],
+        "shards": ["Adaptive Force", "Adaptive Force", "Health Scaling"],
+    },
+    ("Tank", "TOP"): {
+        "keystone": "GraspOfTheUndying", "primary_tree": "Resolve",
+        "primary_slots": ["Demolish", "BonePlating", "Overgrowth"],
+        "secondary_tree": "Precision", "secondary_slots": ["Triumph", "LastStand"],
+        "shards": ["Armor", "Armor", "Health Scaling"],
+    },
+    ("Mage", "TOP"): {
+        "keystone": "Conqueror", "primary_tree": "Precision",
+        "primary_slots": ["Triumph", "LegendTenacity", "LastStand"],
+        "secondary_tree": "Sorcery", "secondary_slots": ["Transcendence", "GatheringStorm"],
+        "shards": ["Adaptive Force", "Adaptive Force", "Health Scaling"],
+    },
+    ("Fighter", "JUNGLE"): {
+        "keystone": "Conqueror", "primary_tree": "Precision",
+        "primary_slots": ["Triumph", "LegendTenacity", "LastStand"],
+        "secondary_tree": "Resolve", "secondary_slots": ["BonePlating", "Overgrowth"],
+        "shards": ["Adaptive Force", "Adaptive Force", "Health Scaling"],
+    },
+    ("Tank", "JUNGLE"): {
+        "keystone": "Aftershock", "primary_tree": "Resolve",
+        "primary_slots": ["FontOfLife", "BonePlating", "Overgrowth"],
+        "secondary_tree": "Precision", "secondary_slots": ["Triumph", "LegendTenacity"],
+        "shards": ["Armor", "Armor", "Health Scaling"],
+    },
+    ("Mage", "JUNGLE"): {
+        "keystone": "DarkHarvest", "primary_tree": "Domination",
+        "primary_slots": ["TasteOfBlood", "EyeballCollection", "TreasureHunter"],
+        "secondary_tree": "Sorcery", "secondary_slots": ["Transcendence", "GatheringStorm"],
+        "shards": ["Adaptive Force", "Adaptive Force", "Health Scaling"],
+    },
+    ("Assassin", "JUNGLE"): {
+        "keystone": "Electrocute", "primary_tree": "Domination",
+        "primary_slots": ["TasteOfBlood", "ZombieWard", "TreasureHunter"],
+        "secondary_tree": "Sorcery", "secondary_slots": ["AbsoluteFocus", "GatheringStorm"],
+        "shards": ["Adaptive Force", "Adaptive Force", "Health Scaling"],
+    },
+    ("Marksman", "JUNGLE"): {
+        "keystone": "LethalTempo", "primary_tree": "Precision",
+        "primary_slots": ["PresenceOfMind", "LegendAlacrity", "CoupDeGrace"],
+        "secondary_tree": "Domination", "secondary_slots": ["TasteOfBlood", "TreasureHunter"],
+        "shards": ["Adaptive Force", "Adaptive Force", "Health Scaling"],
+    },
+    ("Mage", "MIDDLE"): {
+        "keystone": "Electrocute", "primary_tree": "Domination",
+        "primary_slots": ["TasteOfBlood", "EyeballCollection", "TreasureHunter"],
+        "secondary_tree": "Sorcery", "secondary_slots": ["Transcendence", "GatheringStorm"],
+        "shards": ["Adaptive Force", "Adaptive Force", "Health Scaling"],
+    },
+    ("Assassin", "MIDDLE"): {
+        "keystone": "Electrocute", "primary_tree": "Domination",
+        "primary_slots": ["TasteOfBlood", "ZombieWard", "TreasureHunter"],
+        "secondary_tree": "Sorcery", "secondary_slots": ["AbsoluteFocus", "GatheringStorm"],
+        "shards": ["Adaptive Force", "Adaptive Force", "Health Scaling"],
+    },
+    ("Fighter", "MIDDLE"): {
+        "keystone": "Conqueror", "primary_tree": "Precision",
+        "primary_slots": ["Triumph", "LegendAlacrity", "LastStand"],
+        "secondary_tree": "Resolve", "secondary_slots": ["BonePlating", "Overgrowth"],
+        "shards": ["Adaptive Force", "Adaptive Force", "Health Scaling"],
+    },
+    ("Tank", "MIDDLE"): {
+        "keystone": "Arcane Comet", "primary_tree": "Sorcery",
+        "primary_slots": ["ManaflowBand", "Transcendence", "GatheringStorm"],
+        "secondary_tree": "Resolve", "secondary_slots": ["BonePlating", "Overgrowth"],
+        "shards": ["Adaptive Force", "Armor", "Health Scaling"],
+    },
+    ("Marksman", "BOTTOM"): {
+        "keystone": "LethalTempo", "primary_tree": "Precision",
+        "primary_slots": ["PresenceOfMind", "LegendAlacrity", "CoupDeGrace"],
+        "secondary_tree": "Domination", "secondary_slots": ["TasteOfBlood", "TreasureHunter"],
+        "shards": ["Adaptive Force", "Adaptive Force", "Health Scaling"],
+    },
+    ("Mage", "BOTTOM"): {
+        "keystone": "Arcane Comet", "primary_tree": "Sorcery",
+        "primary_slots": ["ManaflowBand", "Transcendence", "GatheringStorm"],
+        "secondary_tree": "Inspiration", "secondary_slots": ["BiscuitDelivery", "CosmicInsight"],
+        "shards": ["Adaptive Force", "Adaptive Force", "Health Scaling"],
+    },
+    ("Support", "UTILITY"): {
+        "keystone": "Aftershock", "primary_tree": "Resolve",
+        "primary_slots": ["FontOfLife", "BonePlating", "Overgrowth"],
+        "secondary_tree": "Inspiration", "secondary_slots": ["BiscuitDelivery", "CosmicInsight"],
+        "shards": ["Armor", "Armor", "Health Scaling"],
+    },
+    ("Mage", "UTILITY"): {
+        "keystone": "SummonAery", "primary_tree": "Sorcery",
+        "primary_slots": ["ManaflowBand", "Transcendence", "Revitalize"],
+        "secondary_tree": "Inspiration", "secondary_slots": ["BiscuitDelivery", "CosmicInsight"],
+        "shards": ["Adaptive Force", "Armor", "Health Scaling"],
+    },
+    ("Fighter", "UTILITY"): {
+        "keystone": "Aftershock", "primary_tree": "Resolve",
+        "primary_slots": ["FontOfLife", "BonePlating", "Overgrowth"],
+        "secondary_tree": "Inspiration", "secondary_slots": ["BiscuitDelivery", "CosmicInsight"],
+        "shards": ["Armor", "Armor", "Health Scaling"],
+    },
+}
+
+GENERIC_BUILDS: dict[tuple, dict] = {
+    ("Fighter", "TOP"): {
+        "start": ["Doran's Blade", "Health Potion"],
+        "boots": "Plated Steelcaps",
+        "core": ["Trinity Force", "Sterak's Gage", "Death's Dance"],
+        "situational": ["Spirit Visage", "Black Cleaver", "Spear of Shojin"],
+        "note": "Build de Luchador estándar. Tradeos cortos para aprovechar tu poder en pelea.",
+    },
+    ("Tank", "TOP"): {
+        "start": ["Doran's Shield", "Health Potion"],
+        "boots": "Plated Steelcaps",
+        "core": ["Sunfire Aegis", "Heartsteel", "Warmog's Armor"],
+        "situational": ["Frozen Heart", "Randuin's Omen", "Force of Nature"],
+        "note": "Rush Heartsteel para escalar en vida. Tu rol es absorber daño e iniciar peleas.",
+    },
+    ("Mage", "TOP"): {
+        "start": ["Doran's Ring", "Health Potion"],
+        "boots": "Sorcerer's Shoes",
+        "core": ["Luden's Echo", "Shadowflame", "Rabadon's Deathcap"],
+        "situational": ["Zhonya's Hourglass", "Void Staff", "Cosmic Drive"],
+        "note": "Pokea desde distancia y usa CC para controlar la línea.",
+    },
+    ("Fighter", "JUNGLE"): {
+        "start": ["Doran's Blade", "Health Potion"],
+        "boots": "Plated Steelcaps",
+        "core": ["Black Cleaver", "Sterak's Gage", "Death's Dance"],
+        "situational": ["Ravenous Hydra", "Guardian Angel", "Serylda's Grudge"],
+        "note": "Farmea los campos eficientemente y gankea cuando los enemigos estén bajos.",
+    },
+    ("Tank", "JUNGLE"): {
+        "start": ["Doran's Shield", "Health Potion"],
+        "boots": "Plated Steelcaps",
+        "core": ["Sunfire Aegis", "Warmog's Armor", "Frozen Heart"],
+        "situational": ["Randuin's Omen", "Force of Nature", "Heartsteel"],
+        "note": "Inicia peleas para tu equipo. Tu CC al entrar cambia los teamfights.",
+    },
+    ("Mage", "JUNGLE"): {
+        "start": ["Doran's Ring", "Health Potion"],
+        "boots": "Sorcerer's Shoes",
+        "core": ["Luden's Echo", "Shadowflame", "Rabadon's Deathcap"],
+        "situational": ["Zhonya's Hourglass", "Void Staff", "Horizon Focus"],
+        "note": "Gankea con CC desde distancia. Farm hasta 3 items y entonces dominas.",
+    },
+    ("Assassin", "JUNGLE"): {
+        "start": ["Doran's Blade", "Health Potion"],
+        "boots": "Ionian Boots of Lucidity",
+        "core": ["The Collector", "Edge of Night", "Serylda's Grudge"],
+        "situational": ["Death's Dance", "Guardian Angel", "Serpent's Fang"],
+        "note": "Gankea los carriles con más posibilidades de kill. Mata carries, no tanques.",
+    },
+    ("Marksman", "JUNGLE"): {
+        "start": ["Doran's Blade", "Health Potion"],
+        "boots": "Berserker's Greaves",
+        "core": ["Kraken Slayer", "Runaan's Hurricane", "Infinity Edge"],
+        "situational": ["Lord Dominik's Regards", "Mortal Reminder", "Guardian Angel"],
+        "note": "Farm rápido, gankea con ult o habilidades a distancia.",
+    },
+    ("Mage", "MIDDLE"): {
+        "start": ["Doran's Ring", "Health Potion"],
+        "boots": "Sorcerer's Shoes",
+        "core": ["Luden's Echo", "Shadowflame", "Rabadon's Deathcap"],
+        "situational": ["Zhonya's Hourglass", "Void Staff", "Horizon Focus"],
+        "note": "Pokea con habilidades, gestiona oleadas y rota a objetivos con el jungla.",
+    },
+    ("Assassin", "MIDDLE"): {
+        "start": ["Long Sword", "Long Sword", "Health Potion"],
+        "boots": "Ionian Boots of Lucidity",
+        "core": ["The Collector", "Edge of Night", "Serylda's Grudge"],
+        "situational": ["Serpent's Fang", "Death's Dance", "Guardian Angel"],
+        "note": "Mata carries en 0.5 segundos. Rota a bot lane tras primer kill en mid.",
+    },
+    ("Fighter", "MIDDLE"): {
+        "start": ["Doran's Blade", "Health Potion"],
+        "boots": "Plated Steelcaps",
+        "core": ["Trinity Force", "Sterak's Gage", "Death's Dance"],
+        "situational": ["Spear of Shojin", "Black Cleaver", "Spirit Visage"],
+        "note": "Dominas en tradeos 1v1. Rota a objetivos cuando empujes la oleada.",
+    },
+    ("Tank", "MIDDLE"): {
+        "start": ["Doran's Shield", "Health Potion"],
+        "boots": "Mercury's Treads",
+        "core": ["Sunfire Aegis", "Warmog's Armor", "Force of Nature"],
+        "situational": ["Heartsteel", "Frozen Heart", "Randuin's Omen"],
+        "note": "Tu rol es absorber daño e iniciar teamfights con tu CC.",
+    },
+    ("Marksman", "BOTTOM"): {
+        "start": ["Doran's Blade", "Health Potion"],
+        "boots": "Berserker's Greaves",
+        "core": ["Kraken Slayer", "Runaan's Hurricane", "Infinity Edge"],
+        "situational": ["Lord Dominik's Regards", "Mortal Reminder", "Guardian Angel"],
+        "note": "Farm hasta 3 items. Posiciónate en la retaguardia durante teamfights.",
+    },
+    ("Mage", "BOTTOM"): {
+        "start": ["Doran's Ring", "Health Potion"],
+        "boots": "Sorcerer's Shoes",
+        "core": ["Luden's Echo", "Shadowflame", "Rabadon's Deathcap"],
+        "situational": ["Void Staff", "Zhonya's Hourglass", "Horizon Focus"],
+        "note": "Pokea con habilidades y usa tu CC en peleas 2v2. Sinergia con support de engage.",
+    },
+    ("Support", "UTILITY"): {
+        "start": ["Relic Shield", "Health Potion"],
+        "boots": "Ionian Boots of Lucidity",
+        "core": ["Locket of the Iron Solari", "Shurelya's Battlesong", "Redemption"],
+        "situational": ["Knight's Vow", "Frozen Heart", "Zeke's Convergence"],
+        "note": "Protege a tu ADC, coloca wards y usa activos de objetos en momentos clave.",
+    },
+    ("Mage", "UTILITY"): {
+        "start": ["Spellthief's Edge", "Health Potion"],
+        "boots": "Ionian Boots of Lucidity",
+        "core": ["Shurelya's Battlesong", "Staff of Flowing Water", "Redemption"],
+        "situational": ["Moonstone Renewer", "Ardent Censer", "Chemtech Putrifier"],
+        "note": "Pokea con habilidades para acumular oro del objeto inicial. Escudo + heal a tu ADC.",
+    },
+    ("Fighter", "UTILITY"): {
+        "start": ["Relic Shield", "Health Potion"],
+        "boots": "Ionian Boots of Lucidity",
+        "core": ["Locket of the Iron Solari", "Knight's Vow", "Shurelya's Battlesong"],
+        "situational": ["Zeke's Convergence", "Frozen Heart", "Redemption"],
+        "note": "Inicia peleas con confianza y usa activos para proteger al ADC tras el engage.",
+    },
+}
+
+
+def get_rune_page(champion_dd: str, role_pos: str, champion_tags: list[str] = None) -> dict | None:
+    """Devuelve la página de runas del campeón: específica si existe, genérica si no."""
+    champ_data = RUNE_PAGES.get(champion_dd, {})
+    specific = champ_data.get(role_pos)
+    if specific:
+        return specific
+    if champion_tags:
+        primary_type = get_primary_type(champion_tags)
+        return GENERIC_RUNES.get((primary_type, role_pos)) or GENERIC_RUNES.get((primary_type, "MIDDLE"))
+    return None
+
+
+def get_build(champion_dd: str, role_pos: str, champion_tags: list[str] = None) -> dict | None:
+    """Devuelve el build del campeón: específico si existe, genérico si no."""
+    champ_data = BUILDS.get(champion_dd, {})
+    specific = champ_data.get(role_pos)
+    if specific:
+        return specific
+    if champion_tags:
+        primary_type = get_primary_type(champion_tags)
+        return GENERIC_BUILDS.get((primary_type, role_pos)) or GENERIC_BUILDS.get((primary_type, "MIDDLE"))
+    return None
